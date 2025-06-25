@@ -1,0 +1,18 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+
+# macOS cruft
+.DS_Store
+
+# Editor configs
+.vscode/
+.idea/
+
+# Virtual environments
+.venv/
+env/
+
+# BLAST outputs (keep them out of version control)
+blast_report/
+split_seqs/
