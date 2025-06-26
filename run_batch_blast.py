@@ -155,7 +155,7 @@ def main():
         for q in split_multifasta(fa, out_dir / "split_seqs"):
             if done_already(q, out_dir):
                 seq_done += 1
-                log.info("⏩ (%d/%d) %-35s  (already done)",
+                log.info("> (%d/%d) %-35s  (already done)",
                          seq_done, seq_total, q.name)
                 continue
 
@@ -182,10 +182,10 @@ def main():
             log.info(">  %s done", q.name)
 
             nap = random.randint(*a.sleep)
-            log.info("🕒 sleeping %d s …", nap)
+            log.info("> sleeping %d s …", nap)
             time.sleep(nap)
 
-    log.info("🎉 All jobs finished in %s", human(time.perf_counter()-t_batch0))
+    log.info("> All jobs finished in %s", human(time.perf_counter()-t_batch0))
     log.info("Log saved to %s", log_path)
 
 # ───────────────────────────────────────────────────────────────────────
