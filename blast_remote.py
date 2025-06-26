@@ -88,9 +88,9 @@ def warn_if_short(query_fa: Path,
 
     if length <= threshold:
         print(
-            f"⚠︎  Query length = {length} bp; "
+            f">  Query length = {length} bp; "
             "for sequences ≤ {threshold} bp NCBI recommends `-task blastn-short`.\n"
-            f"    You requested `-task {requested_task}`. "
+            f">   You requested `-task {requested_task}`. "
             "If you want optimal sensitivity for very short probes/primers, "
             "consider rerunning with `-t blastn-short`."
         )
@@ -135,15 +135,15 @@ def main():
     if a.filter or a.filter == "":                      
         cmd.extend(["-entrez_query", a.filter])
 
-    print("✔ Running BLAST ⇒\n  " + "   ".join(cmd) + "\n")
+    print("> Running BLAST ⇒\n  " + "   ".join(cmd) + "\n")
     t0 = time.perf_counter()
-    print(f"✔ Waiting for BLAST result ...")
+    print(f"> Waiting for BLAST result ...")
     res = subprocess.run(cmd, capture_output=True, text=True)
     t1 = time.perf_counter()                    
     elapsed_sec = t1 - t0                        # float, seconds
     elapsed_hms = str(datetime.timedelta(seconds=int(elapsed_sec)))
-    print(f"✔ Receive BLAST result! done in {elapsed_hms}")
-    print(f"✔ Query time: {elapsed_hms}")
+    print(f"> Receive BLAST result! done in {elapsed_hms}")
+    print(f"> Query time: {elapsed_hms}")
 
 
     if res.returncode != 0:
@@ -157,7 +157,7 @@ def main():
             "check your query and/or filter string."
         )
 
-    print(f"✔ TSV written → {tsv_path.name}  ({tsv_path.stat().st_size} bytes)")
+    print(f"> TSV written → {tsv_path.name}  ({tsv_path.stat().st_size} bytes)")
 
     #convert to excel
     convert_tsv_to_xlsx(tsv_path)

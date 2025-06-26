@@ -3,9 +3,9 @@
 run_batch_blast.py
 Call blast_remote.py sequentially for many query FASTA files.
 
-✓ skips files already processed (xlsx present)
-✓ logs every step
-✓ 11-15 s random pause between jobs
+> skips files already processed (xlsx present)
+> logs every step
+> 11-15 s random pause between jobs
 
 Author: Kimhun Tuntikawinwong
 """
@@ -27,7 +27,7 @@ def get_args():
                     "any Keywords (case-insensitive). If omitted, every FASTA is kept."
                     "Examples: ['marinum'], or['marinum','fortuitum'] ")
     ap.add_argument("--filter", default=None,
-                    help="Entrez filter string (default: Mycobacteriaceae)")
+                    help="Entrez filter string, Example: 'txid1762[Organism]' for Mycobacteriaceae")
     ap.add_argument("--sleep", nargs=2, type=int, default=[11,15],
                     metavar=("MIN","MAX"),
                     help="random delay (s) between jobs")
@@ -112,7 +112,7 @@ def main():
 
     blast_script = Path(a.blast_script).expanduser().resolve()
     if not blast_script.is_file():
-        sys.exit(f"❌ blast_remote.py not found: {blast_script}")
+        sys.exit(f"> blast_remote.py not found: {blast_script}")
 
     in_dir  = Path(a.input_dir).expanduser().resolve()
     out_dir = Path(a.out_dir).expanduser().resolve()
@@ -136,7 +136,7 @@ def main():
         and (a.include is None or any(kw.lower() in f.name.lower() for kw in a.include)))
 
     if not fastas:
-        sys.exit("❌ No matching FASTA files found.")
+        sys.exit("> No matching FASTA files found.")
 
     log.info("Found %d FASTA files", len(fastas))
 
@@ -160,7 +160,7 @@ def main():
                 continue
 
             seq_done += 1
-            log.info("▶︎ (%d/%d) BLAST %s", seq_done, seq_total, q.name)
+            log.info("> (%d/%d) BLAST %s", seq_done, seq_total, q.name)
 
             cmd = [
                 sys.executable, str(blast_script), str(q),         
@@ -177,9 +177,9 @@ def main():
             try:
                 subprocess.run(cmd, check=True)
             except subprocess.CalledProcessError as e:
-                log.error("✖  %s failed (exit %d)", q.name, e.returncode)
+                log.error(">  %s failed (exit %d)", q.name, e.returncode)
                 continue
-            log.info("✔  %s done", q.name)
+            log.info(">  %s done", q.name)
 
             nap = random.randint(*a.sleep)
             log.info("🕒 sleeping %d s …", nap)
