@@ -119,7 +119,7 @@ def main():
         "-max_target_seqs", "200",
         "-outfmt", 
         (
-        "6 qseqid sseqid "      # query / subject IDs
+        "6 qseqid saccver "      # query / subject IDs
         "qcovs "                # Query Cover (sum of all HSPs, %)
         "pident length mismatch gapopen "
         "qstart qend sstart send "
