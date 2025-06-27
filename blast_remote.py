@@ -161,22 +161,6 @@ def warn_if_short(query_fa: Path,
         )
 # -------------------------------------------------------
 def main():
-    """
-    Orchestrate the batch run:
-
-    1. Parse CLI arguments.  
-    2. Discover FASTA files (with optional keyword whitelist).  
-    3. Split any multi-record FASTA.  
-    4. Invoke *blast_remote.py* for each sequence not yet processed.  
-    5. Log progress and sleep a random interval between jobs.
-
-    Notes
-    -----
-    * Logging goes both to the console **and** to a timestamped text file
-      in *out_dir*.
-    * The wrapper passes ``--sleep 0 0`` to *blast_remote.py* because the
-      outer script already handles the polite back-off.
-    """
     a = parse_args()
 
     query  = Path(a.query).expanduser().resolve()

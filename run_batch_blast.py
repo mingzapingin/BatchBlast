@@ -114,17 +114,18 @@ def split_multifasta(fasta: Path, out_folder: Path, line_width: int = 70,):
     list[Path]
         List of FASTA paths that the caller should submit to BLAST.
     """
-    out_folder.mkdir(parents=True, exist_ok=True)
 
     # --- quick scan to find deflines ------------------------------
     with fasta.open() as fh:
         headers = [i for i, line in enumerate(fh) if line.startswith(">")]
 
     if len(headers) <= 1:                       # single-record FASTA
-        return [fasta]
+        return [fasta]   
     log = logging.getLogger("batch")
     log.info("Detected  multiple headers in one FASTA files, splitting into %d sequences", len(headers))
 
+    out_folder.mkdir(parents=True, exist_ok=True) 
+    
     # --- multi-record: split --------------------------------------
     split_files = []
     record_idx = 0
