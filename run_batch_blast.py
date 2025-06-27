@@ -16,6 +16,22 @@ import subprocess, sys, time, datetime, random, logging, argparse
 
 # ─── command-line options ──────────────────────────────────────────────
 def get_args():
+    """
+    Parse all CLI options for *run_batch_blast.py*.
+
+    Returns
+    -------
+    argparse.Namespace
+        Populated namespace with attributes:
+
+        * **input_dir** – folder containing FASTA files  
+        * **out_dir** – destination for *.tsv / .xlsx*  
+        * **blast_script** – path to *blast_remote.py*  
+        * **include** – list[str] keywords for filename whitelist  
+        * **filter** – Entrez query string (or *None*)  
+        * **filter_name** – short human-readable label for the filter  
+        * **sleep** – two-element list [min, max] pause in seconds
+    """
     ap = argparse.ArgumentParser(
         description="Batch wrapper around blast_remote.py")
     ap.add_argument("input_dir",  help="folder with *.fa / *.fna / *.fasta")
@@ -28,6 +44,8 @@ def get_args():
                     "Examples: ['marinum'], or['marinum','fortuitum'] ")
     ap.add_argument("--filter", default=None,
                     help="Entrez filter string, Example: 'txid1762[Organism]' for Mycobacteriaceae")
+    ap.add_argument("--filter_name", default=None,
+                    help="Entrez filter string, Example: 'Mycobacteriaceae'")
     ap.add_argument("--sleep", nargs=2, type=int, default=[11,15],
                     metavar=("MIN","MAX"),
                     help="random delay (s) between jobs")
@@ -35,11 +53,39 @@ def get_args():
 
 # ─── helpers ───────────────────────────────────────────────────────────
 def human(seconds: float) -> str:
+    """
+    Convert a duration in seconds into *HH:MM:SS*.
+
+    Parameters
+    ----------
+    seconds : float
+        Number of seconds.
+
+    Returns
+    -------
+    str
+        Human-readable time string, e.g. ``'02:17:45'``.
+    """
     return str(datetime.timedelta(seconds=int(seconds)))
 
 def done_already(fasta: Path, out_dir: Path) -> bool:
     """
-    True if an .xlsx whose stem starts with the FASTA stem already exists.
+    Check whether this FASTA has been processed before.
+
+    The rule is: if any *.xlsx* in *out_dir* starts with the same **stem**
+    (basename without extension) as *fasta*, we consider the job done.
+
+    Parameters
+    ----------
+    fasta : pathlib.Path
+        Query FASTA file.
+    out_dir : pathlib.Path
+        Output folder that may already contain results.
+
+    Returns
+    -------
+    bool
+        ``True`` if a matching Excel file exists, else ``False``.
     """
     stem = fasta.stem
     return any(p.name.startswith(stem) and p.suffix == ".xlsx"
@@ -47,23 +93,26 @@ def done_already(fasta: Path, out_dir: Path) -> bool:
 
 def split_multifasta(fasta: Path, out_folder: Path, line_width: int = 70,):
     """
-    If *fasta* contains > 1 record, write each record to its own
-    FASTA file in *out_folder* and return the list of new paths.
-    If the file already has a single record, return [fasta].
+    Split a multi-record FASTA into individual one-record files.
+
+    If *fasta* contains only a single header, the same path is returned
+    unchanged. Otherwise each record is written to  
+    ``<out_folder>/<stem>_<idx>.fasta`` and a list of those paths is
+    returned.
 
     Parameters
     ----------
-    fasta : Path
-        Path to the input FASTA.
-    out_folder : Path
-        Where the per-sequence files will be written.
-    line_width : int
-        Wrap sequence lines to this many characters (default 70).
+    fasta : pathlib.Path
+        Input FASTA (may have 1 or many sequences).
+    out_folder : pathlib.Path
+        Folder to hold the generated single-record FASTA files.
+    line_width : int, optional
+        Column width used when re-wrapping sequence lines (default 70).
 
     Returns
     -------
     list[Path]
-        Paths of FASTA files that should be BLASTed.
+        List of FASTA paths that the caller should submit to BLAST.
     """
     out_folder.mkdir(parents=True, exist_ok=True)
 
@@ -108,6 +157,22 @@ def split_multifasta(fasta: Path, out_folder: Path, line_width: int = 70,):
 
 # ─── main ──────────────────────────────────────────────────────────────
 def main():
+    """
+    Orchestrate the batch run:
+
+    1. Parse CLI arguments.  
+    2. Discover FASTA files (with optional keyword whitelist).  
+    3. Split any multi-record FASTA.  
+    4. Invoke *blast_remote.py* for each sequence not yet processed.  
+    5. Log progress and sleep a random interval between jobs.
+
+    Notes
+    -----
+    * Logging goes both to the console **and** to a timestamped text file
+      in *out_dir*.
+    * The wrapper passes ``--sleep 0 0`` to *blast_remote.py* because the
+      outer script already handles the polite back-off.
+    """
     a = get_args()
 
     blast_script = Path(a.blast_script).expanduser().resolve()
@@ -167,13 +232,15 @@ def main():
                 "-d", "core_nt",
                 "-o", str(out_dir),
                 "-t", "megablast",
-                "-n", "Mycobacteriaceae",
                 "--sleep", "0", "0"
             ]
 
             if a.filter:                                 
                 cmd.extend(["-f", a.filter])
             
+            if a.filter_name:
+                cmd.extend(["-n", a.filter_name])
+
             try:
                 subprocess.run(cmd, check=True)
             except subprocess.CalledProcessError as e:

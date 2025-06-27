@@ -13,6 +13,15 @@ import pandas as pd
 
 # ---------------------------------------------------------------------
 def parse_args():
+    """
+    Parse the command-line interface for *blast_remote.py*.
+
+    Returns
+    -------
+    argparse.Namespace
+        The populated namespace whose attributes correspond to the
+        command-line options (e.g. ``namespace.query``, ``namespace.db`` …).
+    """
     p = argparse.ArgumentParser(
         description="Remote BLAST → TSV → XLSX (short-sequence wrapper)")
     p.add_argument("query", help="FASTA file containing ONE query sequence")
@@ -36,16 +45,56 @@ def parse_args():
     return p.parse_args()
 
 # ---------------------------------------------------------------------
-def auto_name(query: Path, outdir: Path, filter_name: str) -> Path: 
+def auto_name(query: Path, outdir: Path, filter_name: str) -> Path:
+    """
+    Build a timestamped default output filename.
+
+    The name is constructed as  
+    ``<query stem>_vs_<filter_name>_<YYYYMMDD_HHMMSS>.tsv`` when
+    *filter_name* is supplied, otherwise  
+    ``<query stem>_<YYYYMMDD_HHMMSS>.tsv``.
+
+    Parameters
+    ----------
+    query : pathlib.Path
+        The original FASTA file provided by the user.
+    outdir : pathlib.Path
+        Destination directory in which the file will be created.
+    filter_name : str
+        Readable label for the Entrez filter (e.g. ``"Mycobacteriaceae"``).
+
+    Returns
+    -------
+    pathlib.Path
+        Full path of the output *.tsv* file.
+    """
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     base = query.stem.split(".")[0]
     if filter_name:
         return outdir / f"{base}_vs_{filter_name}_{ts}.tsv"
     else:
         return outdir / f"{base}_{ts}.tsv"
-
 # ---------------------------------------------------------------------
 def convert_tsv_to_xlsx(tsv: Path):
+    """
+    Load a BLAST *outfmt 6* TSV, add column headers, and save as Excel.
+
+    Parameters
+    ----------
+    tsv : pathlib.Path
+        Path to the BLAST results in *outfmt 6* (tab-delimited).
+
+    Returns
+    -------
+    pathlib.Path
+        Path to the newly-created *.xlsx* file (same stem as *tsv*).
+
+    Notes
+    -----
+    The column list (`cols`) must match the fields requested in the
+    ``-outfmt`` string, **in the same order**; otherwise Pandas will
+    mis-align the data.
+    """
     cols = [
         "query_seq_id","subject_seq_id","query_coverage","percent_identity","length","mismatch","gapopen",
         "query_start","query_end","subject_start","send","evalue","bitscore","score",
@@ -61,15 +110,31 @@ def warn_if_short(query_fa: Path,
                   requested_task: str,
                   threshold: int = 50) -> None:
     """
-    Print a recommendation to use `blastn-short` if the first sequence
-    in *query_fa* is below *threshold* bp and the user didn’t already
-    ask for blastn-short.
+    Emit a polite hint when a very short query is run with the wrong task.
+
+    If the first sequence in *query_fa* is ≤ *threshold* bp and the user
+    did **not** request ``-task blastn-short``, a warning message is printed
+    to stderr suggesting that task.
 
     Parameters
     ----------
-    query_fa       : Path
-    requested_task : str   – the task the user supplied on the CLI
-    threshold      : int   – length below which blastn-short is advised
+    query_fa : pathlib.Path
+        FASTA file provided on the command line.
+    requested_task : str
+        Value of the ``--task`` option the user supplied.
+    threshold : int, optional
+        Length (in bp) below which the message should be shown
+        (default = 50 bp).
+
+    Returns
+    -------
+    None
+        The function only prints a message; it does not modify state.
+
+    Examples
+    --------
+    >>> warn_if_short(Path("probe.fa"), "blastn")
+    >  Query length = 35 bp; for sequences ≤ 50 bp [...]
     """
     if requested_task == "blastn-short":
         return                                     # user already chose it
@@ -96,6 +161,22 @@ def warn_if_short(query_fa: Path,
         )
 # -------------------------------------------------------
 def main():
+    """
+    Orchestrate the batch run:
+
+    1. Parse CLI arguments.  
+    2. Discover FASTA files (with optional keyword whitelist).  
+    3. Split any multi-record FASTA.  
+    4. Invoke *blast_remote.py* for each sequence not yet processed.  
+    5. Log progress and sleep a random interval between jobs.
+
+    Notes
+    -----
+    * Logging goes both to the console **and** to a timestamped text file
+      in *out_dir*.
+    * The wrapper passes ``--sleep 0 0`` to *blast_remote.py* because the
+      outer script already handles the polite back-off.
+    """
     a = parse_args()
 
     query  = Path(a.query).expanduser().resolve()
