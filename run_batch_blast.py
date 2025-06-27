@@ -5,7 +5,7 @@ Call blast_remote.py sequentially for many query FASTA files.
 
 > skips files already processed (xlsx present)
 > logs every step
-> 11-15 s random pause between jobs
+> back off atleast 10 sec for each query
 
 Author: Kimhun Tuntikawinwong
 """
@@ -29,26 +29,34 @@ def get_args():
         * **blast_script** – path to *blast_remote.py*  
         * **include** – list[str] keywords for filename whitelist  
         * **filter** – Entrez query string (or *None*)  
-        * **filter_name** – short human-readable label for the filter  
-        * **sleep** – two-element list [min, max] pause in seconds
+        * **filter_name** – short human-readable label for the filter
+        * **task** algorithmn to use
+        * **database** database to use
+        * **sleep** – int pause in seconds
     """
     ap = argparse.ArgumentParser(
         description="Batch wrapper around blast_remote.py")
-    ap.add_argument("input_dir",  help="folder with *.fa / *.fna / *.fasta")
-    ap.add_argument("out_dir",    help="folder to write .tsv / .xlsx results")
+    ap.add_argument("input_dir", metavar="Input dir", help="folder with *.fa / *.fna / *.fasta")
+    ap.add_argument("out_dir", metavar="Output dir", help="folder to write .tsv / .xlsx results")
     ap.add_argument("--blast_script", default="blast_remote.py",
                     help="path to blast_remote.py (default: same folder)")
     ap.add_argument("--include",nargs="*",             # 0, 1, or many strings
-                    metavar="Keyword",help="whitelist of keyword; keep FASTA whose *filename* contains "
+                    metavar="Keyword to Include",help="whitelist of keyword; keep FASTA whose *filename* contains "
                     "any Keywords (case-insensitive). If omitted, every FASTA is kept."
                     "Examples: ['marinum'], or['marinum','fortuitum'] ")
     ap.add_argument("--filter", default=None,
                     help="Entrez filter string, Example: 'txid1762[Organism]' for Mycobacteriaceae")
     ap.add_argument("--filter_name", default=None,
                     help="Entrez filter string, Example: 'Mycobacteriaceae'")
-    ap.add_argument("--sleep", nargs=2, type=int, default=[11,15],
-                    metavar=("MIN","MAX"),
-                    help="random delay (s) between jobs")
+    ap.add_argument("--task", default="blastn",
+                   choices=["blastn", "megablast", "dc-megablast", "blastn-short"],
+                   help="BLAST task (default: blastn)")
+    ap.add_argument("--db", default="core_nt",
+                   choices=["nt", "core_nt"],
+                   help="BLAST database (default: core_nt)")
+    ap.add_argument("--sleep", type=int, default=10,
+                    metavar="Delay (sec)",
+                    help="delay (s) between jobs")
     return ap.parse_args()
 
 # ─── helpers ───────────────────────────────────────────────────────────
@@ -217,6 +225,12 @@ def main():
     t_batch0 = time.perf_counter()
     seq_done = 0
 
+    if a.sleep >= 10:
+        time_to_sleep = str(a.sleep)
+    else:
+        time_to_sleep = "10"
+        log.info("> Delay should be atleast 10 sec!")
+    
     for fa in fastas:
         for q in split_multifasta(fa, out_dir / "split_seqs"):
             if done_already(q, out_dir):
@@ -230,10 +244,10 @@ def main():
 
             cmd = [
                 sys.executable, str(blast_script), str(q),         
-                "-d", "core_nt",
+                "-d", a.db,
                 "-o", str(out_dir),
-                "-t", "megablast",
-                "--sleep", "0", "0"
+                "-t", a.task,
+                "--sleep", time_to_sleep
             ]
 
             if a.filter:                                 
@@ -249,9 +263,6 @@ def main():
                 continue
             log.info(">  %s done", q.name)
 
-            nap = random.randint(*a.sleep)
-            log.info("> sleeping %d s …", nap)
-            time.sleep(nap)
 
     log.info("> All jobs finished in %s", human(time.perf_counter()-t_batch0))
     log.info("Log saved to %s", log_path)

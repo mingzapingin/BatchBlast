@@ -39,9 +39,9 @@ def parse_args():
                    help="filter (default: none)")
     p.add_argument("-n", "--filter_name", default=None,
                    help="filter name(default: none)")
-    p.add_argument("-s","--sleep", nargs=2, type=int, default=[11, 15],
-                   metavar=("MIN", "MAX"),
-                   help="random pause after job (default: 11-15 s)")
+    p.add_argument("--sleep", type=int, default=10,
+                    metavar="Delay (sec)",
+                    help="delay (s) between jobs")
     return p.parse_args()
 
 # ---------------------------------------------------------------------
@@ -228,9 +228,9 @@ def main():
     convert_tsv_to_xlsx(tsv_path)
 
     # polite back-off
-    sleep_for = random.randint(*a.sleep)
-    print(f"Sleeping {sleep_for}s …")
-    time.sleep(sleep_for)
+
+    print(f"Sleeping {a.sleep}s …")
+    time.sleep(a.sleep)
 
 # ---------------------------------------------------------------------
 if __name__ == "__main__":
